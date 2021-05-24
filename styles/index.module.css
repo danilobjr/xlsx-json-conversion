@@ -17,3 +17,11 @@
 .mtop {
   margin-top: 1rem;
 }
+
+.inputfield {
+  margin-top: 1rem;
+}
+
+.inputfield input {
+  margin-top: 0.25rem;
+}
