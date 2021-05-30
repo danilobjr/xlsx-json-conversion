@@ -1,19 +1,19 @@
 import { head, path, pipe } from 'ramda'
-import { SpreadsheetErrorMessages } from '../src/components'
 import { couponSpreadsheetSchema } from '../src/schemas'
 import { useSpreadsheetFileWithSchemaValidation } from '../src/hooks'
 import styles from '../styles/index.module.css'
 
 const Index = () => {
-  const { setSpreadsheetFile, errors } = useSpreadsheetFileWithSchemaValidation(
-    { schema: couponSpreadsheetSchema },
-  )
+  const { setSpreadsheetFile, errors } =
+    useSpreadsheetFileWithSchemaValidation()
 
   const onInputChange = pipe(
     path(['target', 'files']),
     head,
     setSpreadsheetFile,
   )
+
+  console.log('index', JSON.stringify(errors, null, 2))
 
   return (
     <div className={styles.container}>
@@ -30,9 +30,9 @@ const Index = () => {
         <input type="file" onChange={onInputChange} />
       </div>
 
-      <div className={styles.mtop}>
+      {/* <div className={styles.mtop}>
         <SpreadsheetErrorMessages errors={errors} />
-      </div>
+      </div> */}
     </div>
   )
 }
