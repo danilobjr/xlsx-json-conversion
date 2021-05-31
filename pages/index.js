@@ -17,7 +17,7 @@ const Index = () => {
   return (
     <div className={styles.container}>
       <div>
-        <a className={styles.anchor} href="/ajuda-saude-cupom-template.xlsx">
+        <a className={styles.anchor} href="/cupom-template.xlsx">
           Download template
         </a>
       </div>
