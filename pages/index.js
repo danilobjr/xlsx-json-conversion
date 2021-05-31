@@ -1,12 +1,11 @@
 import { head, path, pipe } from 'ramda'
 import { couponSpreadsheetSchema } from '../src/schemas'
 import { SpreadsheetErrorMessages } from '../src/components'
-import { useSpreadsheetFileWithSchemaValidation } from '../src/hooks'
+import { useSpreadsheetFile } from '../src/hooks'
 import styles from '../styles/index.module.css'
 
 const Index = () => {
-  const { setSpreadsheetFile, errors } =
-    useSpreadsheetFileWithSchemaValidation()
+  const { setSpreadsheetFile, errors } = useSpreadsheetFile()
 
   const onInputChange = pipe(
     path(['target', 'files']),
