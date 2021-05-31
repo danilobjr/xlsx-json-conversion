@@ -1,18 +1,38 @@
 import { ErrorCard } from './errorCard'
 import styles from '../../styles/spreadsheetErrorMessages.module.css'
+import { isEmpty } from 'ramda'
 
 export const SpreadsheetErrorMessages = ({ errors }) => {
-  const errorCards =
-    errors?.map((error, index) => <ErrorCard key={index} error={error} />) ||
+  const headerErrorCards =
+    errors?.headers?.map((error, index) => <span key={index}>{error}</span>) ||
     null
 
-  return !errorCards ? null : (
-    <div>
-      <div>
-        <label>Erros</label>
-      </div>
+  const cellErrorCards =
+    errors?.cells?.map((error, index) => (
+      <ErrorCard key={index} error={error} />
+    )) || null
 
-      <div className={styles.cards}>{errorCards}</div>
+  return isEmpty(errors?.headers) && isEmpty(!errors?.cells) ? null : (
+    <div>
+      <h3>Erros</h3>
+
+      {!isEmpty(errors?.headers) && (
+        <>
+          <div>
+            <label>Cabecalhos</label>
+          </div>
+          <div className={styles.cards}>{headerErrorCards}</div>
+        </>
+      )}
+
+      {!isEmpty(errors?.cells) && (
+        <>
+          <div>
+            <label>Celulas</label>
+          </div>
+          <div className={styles.cards}>{cellErrorCards}</div>
+        </>
+      )}
     </div>
   )
 }

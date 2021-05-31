@@ -1,4 +1,3 @@
-import { parseExcelDate } from 'read-excel-file'
 import styles from '../../styles/errorCard.module.css'
 
 function getExcelColumnInLetterFormatByColumnName(columnName) {
@@ -24,33 +23,24 @@ function getExcelColumnInLetterFormatByColumnName(columnName) {
   }
 }
 
-function getCellByError(error) {
-  return `${getExcelColumnInLetterFormatByColumnName(error?.column)}${
-    error?.row
-  }`
-}
+// function getCellByError(error) {
+//   return `${getExcelColumnInLetterFormatByColumnName(error?.column)}${
+//     error?.row
+//   }`
+// }
 
-export const ErrorCard = ({ error, ...otherProps }) => {
-  let value = error.value
+export const ErrorCard = ({ error, ...otherProps }) => (
+  <div className={styles.card} {...otherProps}>
+    <h2>
+      <strong>{error?.cell}</strong>
+    </h2>
 
-  if (error.type === Date) {
-    value = parseExcelDate(value).toString()
-  }
+    <p>
+      {'Erro: '}
+      <strong>{error?.errorMessage}</strong>
+    </p>
 
-  return (
-    <div className={styles.card} {...otherProps}>
-      <h2>
-        {'Celula '}
-        <strong>{getCellByError(error)}</strong>
-      </h2>
-
-      <p>
-        {'Erro: '}
-        <strong>{error?.error}</strong>
-      </p>
-
-      {'Conteudo: '}
-      <strong>{value || 'vazio'}</strong>
-    </div>
-  )
-}
+    {'Conteudo: '}
+    <strong>{error?.value || 'Vazio'}</strong>
+  </div>
+)

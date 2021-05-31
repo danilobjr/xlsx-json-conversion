@@ -1,5 +1,6 @@
 import { head, path, pipe } from 'ramda'
 import { couponSpreadsheetSchema } from '../src/schemas'
+import { SpreadsheetErrorMessages } from '../src/components'
 import { useSpreadsheetFileWithSchemaValidation } from '../src/hooks'
 import styles from '../styles/index.module.css'
 
@@ -12,8 +13,6 @@ const Index = () => {
     head,
     setSpreadsheetFile,
   )
-
-  console.log('index', JSON.stringify(errors, null, 2))
 
   return (
     <div className={styles.container}>
@@ -30,9 +29,9 @@ const Index = () => {
         <input type="file" onChange={onInputChange} />
       </div>
 
-      {/* <div className={styles.mtop}>
+      <div className={styles.mtop}>
         <SpreadsheetErrorMessages errors={errors} />
-      </div> */}
+      </div>
     </div>
   )
 }

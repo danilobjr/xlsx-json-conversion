@@ -1,22 +1,184 @@
-import { head, includes, isEmpty, pipe, map, find, values, nth } from 'ramda'
+import {
+  allPass,
+  head,
+  includes,
+  isEmpty,
+  pipe,
+  map,
+  keys,
+  curry,
+  reduce,
+  length,
+  gte,
+  lte,
+  not,
+  anyPass,
+  isNil,
+  is,
+  omit,
+  filter,
+} from 'ramda'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
-import * as yup from 'yup'
+import validator from 'validator'
+import { DateTime } from 'luxon'
+
+const today = () => new Date(new Date().setHours(0, 0, 0))
+
+const required = curry(({ errorMessage = 'Informe um valor' }, value) => ({
+  valid: pipe(anyPass([isEmpty, isNil]), not)(value),
+  errorMessage,
+  value,
+}))
+
+const string = curry(
+  ({ errorMessage = 'Valor nao eh do tipo texto' }, value) => ({
+    valid: is(String)(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const stringMax = curry(
+  ({ max, errorMessage = `Valor com no maximo ${max} caracteres` }, value) => ({
+    valid: pipe(length, gte(max))(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const matches = curry(
+  (
+    { pattern, errorMessage = `Valor nao satisfaz padrao: ${pattern}` },
+    value,
+  ) => {
+    return {
+      valid: pattern?.test(value),
+      errorMessage,
+      value,
+    }
+  },
+)
+
+const number = curry(({ errorMessage = 'Valor nao eh numerico' }, value) => ({
+  valid: is(Number)(value),
+  errorMessage,
+  value,
+}))
+
+const integer = curry(
+  ({ errorMessage = 'Valor numerico deve ser do tipo inteiro' }, value) => ({
+    valid: Number.isInteger(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const numberMin = curry(
+  (
+    { min, errorMessage = `Valor deve ser maior ou igual a ${min}` },
+    value,
+  ) => ({
+    valid: lte(min)(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const numberMax = curry(
+  (
+    { max, errorMessage = `Valor deve ser menor ou igual a ${max}` },
+    value,
+  ) => ({
+    valid: gte(max)(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const numberRange = curry(
+  (
+    {
+      min,
+      max,
+      errorMessage = `Valor deve estar no intervalo de ${min} a ${max}`,
+    },
+    value,
+  ) => ({
+    valid: allPass([lte(min), gte(max)])(value),
+    errorMessage,
+    value,
+  }),
+)
+
+const date = curry(
+  ({ errorMessage = 'Valor nao eh uma data valida' }, value) => ({
+    valid: validator.isDate(value, { format: 'DD/MM/YYYY' }),
+    errorMessage,
+    value,
+  }),
+)
+
+const dateMin = curry(
+  (
+    {
+      min,
+      errorMessage = `Data deve ser maior ou igual a ${
+        typeof min === 'string' ? min : min?.toLocaleDateString('pt-br')
+      }`,
+    },
+    value,
+  ) => {
+    return {
+      valid: lte(min)(DateTime.fromFormat(value, 'dd/MM/yyyy')),
+      errorMessage,
+      value,
+    }
+  },
+)
+
+const log = (x) => {
+  console.log('log', x)
+  return x
+}
+
+const validation = curry((path, validations, value) =>
+  pipe(
+    reduce((validationResult, validate) => {
+      if (!isEmpty(validationResult)) {
+        return validationResult
+      }
+
+      const result = validate(value)
+      if (!result.valid) {
+        return [result]
+      }
+
+      return validationResult
+    }, []),
+    reduce((error, validationResult) => {
+      if (isNil(error) && !validationResult.valid) {
+        return {
+          ...omit(['valid'])(validationResult),
+          path,
+        }
+      }
+
+      return error
+    }, undefined),
+  )(validations),
+)
+
+const validate = (schema, obj) => {
+  return Object.keys(obj).map((objProp) => {
+    const validate = schema[objProp]
+    const value = obj[objProp]
+    return validate(value)
+  })
+}
 
 const convertNumberToAlphabetLetter = (number) =>
   String.fromCharCode(number + 64)
-
-const expectedHeaders = [
-  'CODIGO DO CUPOM',
-  'QUANTIDADE',
-  'DESCONTO NA MENSALIDADE (%)',
-  'DESCONTO NA ADESAO (%)',
-  'LIVRE DE CARENCIA',
-  'DURACAO (MESES)',
-  'DATA DE EXPIRACAO',
-  'PLANO',
-  'TIPO DE PLANO',
-]
 
 const headerToPropMapping = {
   'CODIGO DO CUPOM': { propName: 'couponCode', column: 1 },
@@ -29,24 +191,29 @@ const headerToPropMapping = {
     propName: 'registrationFeeDiscountPercentage',
     column: 4,
   },
-  'LIVRE DE CARENCIA': { propName: 'freeGracePeriod', column: 5 },
+  'LIVRE DE CARENCIA (SIM/NAO)': { propName: 'freeGracePeriod', column: 5 },
   'DURACAO (MESES)': { propName: 'duration', column: 6 },
-  'DATA DE EXPIRACAO': { propName: 'redeemExpirationDate', column: 7 },
-  PLANO: { propName: 'planName', column: 7 },
-  'TIPO DE PLANO': { propName: 'planType', column: 8 },
+  'DATA DE EXPIRACAO (DD/MM/YYYY)': {
+    propName: 'redeemExpirationDate',
+    column: 7,
+  },
+  'PLANO (TRIMESTRAL/SEMESTRAL/ANUAL)': { propName: 'planName', column: 7 },
+  'TIPO DE PLANO (INDIVIDUAL/FAMILIAR)': { propName: 'planType', column: 8 },
 }
+
+const expectedHeaders = keys(headerToPropMapping)
 
 const getPropNameFromHeaderMappingByKey = (key) =>
   headerToPropMapping?.[key]?.propName
 
-const getColumnFromHeaderMappingByPropName = (mapping, propName) =>
-  pipe(
-    values,
-    map(values),
-    find(includes(propName)),
-    nth(1),
-    convertNumberToAlphabetLetter,
-  )(mapping)
+// const getColumnFromHeaderMappingByPropName = (mapping, propName) =>
+//   pipe(
+//     values,
+//     map(values),
+//     find(includes(propName)),
+//     nth(1),
+//     convertNumberToAlphabetLetter,
+//   )(mapping)
 
 const validateHeaders = (expected, headersCandidate) => {
   return expected.reduce((errors, expectedHeader, index) => {
@@ -89,68 +256,81 @@ const convertSpreadsheetDataIntoObject = (data, mapping) => {
   )
 }
 
-const couponSpreadsheetSchema = yup.object().shape({
-  couponCode: yup.string().max(80).required(),
-  quantity: yup.number().positive().min(1).max(99999).required(),
-  installmentDiscountPercentage: yup
-    .number()
-    .integer()
-    .min(0)
-    .max(100)
-    .required(),
-  registrationFeeDiscountPercentage: yup
-    .number()
-    .integer()
-    .min(0)
-    .max(100)
-    .required(),
-  freeGracePeriod: yup
-    .string()
-    .matches(/^(sim|n(a|ã)o)$/gi, 'Valor deveria ser Sim ou Nao')
-    .required(),
-  duration: yup.number().integer().min(1, 'Valor minimo eh 1').required(),
-  redeemExpirationDate: yup
-    // TODO set a transformation to dd/MM/yyyy
-    .date()
-    .min(new Date(), 'Data nao pode ser definida no passado')
-    .required(),
-  planName: yup
-    .string()
-    .matches(
-      /^trimestral$|^semestral$|^anual$/gi,
-      'Valor deveria ser Trimestral, Semestral ou Anual',
-    )
-    .required(),
-  planType: yup
-    .string()
-    .matches(
-      /^individual$|^fam(i|í)lia$/gi,
-      'Valor deveria ser Individual ou Familia',
-    )
-    .required(),
-})
+// TODO remove first arg from validation function
+const couponSpreadsheetSchema = {
+  couponCode: validation('A', [
+    required({}),
+    string({}),
+    stringMax({ max: 80 }),
+  ]),
+  quantity: validation('B', [
+    required({}),
+    number({}),
+    numberRange({ min: 1, max: 99999 }),
+  ]),
+  installmentDiscountPercentage: validation('C', [
+    required({}),
+    number({}),
+    numberRange({ min: 0, max: 100 }),
+  ]),
+  registrationFeeDiscountPercentage: validation('D', [
+    required({}),
+    number({}),
+    numberRange({ min: 0, max: 100 }),
+  ]),
+  freeGracePeriod: validation('E', [
+    required({}),
+    string({}),
+    matches({
+      pattern: /^(sim|n(a|ã)o)$/i,
+      errorMessage: 'Valor deveria ser Sim ou Não',
+    }),
+  ]),
+  duration: validation('F', [
+    required({}),
+    number({}),
+    integer({}),
+    numberMin({ min: 1 }),
+  ]),
+  redeemExpirationDate: validation('G', [
+    required({}),
+    date({}),
+    dateMin({ min: today() }),
+  ]),
+  planName: validation('H', [
+    required({}),
+    string({}),
+    matches({
+      pattern: /^trimestral|semestral|anual$/i,
+      errorMessage: 'Valor deveria ser Trimestral, Semestral ou Anual',
+    }),
+  ]),
+  // ,
+  planType: validation('I', [
+    required({}),
+    string({}),
+    matches({
+      pattern: /^individual$|^fam(i|í)lia$/i,
+      errorMessage: 'Valor deveria ser Individual ou Familia',
+    }),
+  ]),
+}
 
 const validateRow = (schema) => (row, rowNumber) => {
-  try {
-    schema.validateSync(row, { abortEarly: false })
-    return
-  } catch (error) {
-    const getColumnLetter = (e) =>
-      getColumnFromHeaderMappingByPropName(headerToPropMapping, e?.path)
-
-    const getColumn = (e) => `${getColumnLetter(e)}${rowNumber}`
-
-    return error?.inner?.map((e) => ({
-      column: getColumn(e),
-      value: e?.params?.originalValue,
-      message: e?.message,
-    }))
-  }
+  const validationResults = validate(schema, row)
+  return pipe(
+    filter(pipe(isNil, not)),
+    map((validationResult) => ({
+      cell: `${validationResult.path}${rowNumber}`,
+      value: validationResult?.value,
+      errorMessage: validationResult?.errorMessage,
+    })),
+  )(validationResults)
 }
 
 const validateRows = (rowsCandidate, validate) => {
   return rowsCandidate?.reduce((errors, row, index) => {
-    const skipZeroBasedIndexAndHeadersIndex = 2
+    const skipZeroBasedIndexAndHeadersIndex = 1
     const rowNumber = index + skipZeroBasedIndexAndHeadersIndex
     const rowErrors = validate(row, rowNumber)
     return isEmpty(rowErrors) ? errors : [...errors, ...rowErrors]
@@ -169,6 +349,7 @@ export const worksheetReaderInit = (file) => {
       const dataParsed = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
         raw: true,
+        blankrows: false,
       })
 
       return resolve(dataParsed)
@@ -199,14 +380,22 @@ export const useSpreadsheetFileWithSchemaValidation = () => {
       headerToPropMapping,
     )
 
-    const rowsValidationResult = validateRows(
+    if (!isEmpty(headersValidationResult)) {
+      setErrors({
+        headers: headersValidationResult,
+      })
+
+      return
+    }
+
+    const cellValidationResults = validateRows(
       rows,
       validateRow(couponSpreadsheetSchema),
     )
 
     setErrors({
       headers: headersValidationResult,
-      rows: rowsValidationResult,
+      cells: cellValidationResults,
     })
   }, [spreadsheetFile])
 
